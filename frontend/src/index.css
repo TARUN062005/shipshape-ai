@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-sans: "Outfit", "Segoe UI", sans-serif;
+  --color-paper: #f3efe4;
+  --color-ink: #1c2430;
+  --color-navy: #1a2a3a;
+  --color-brass: #8f5b32;
+  --color-card: #fffdf8;
+  --color-line: #e3d8c6;
+  --color-pass: #1d6b43;
+  --color-fail: #9d2c2c;
+  --color-review: #8a5b10;
+  --color-mute: #4d5968;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(143, 91, 50, 0.08), transparent 32rem),
+    var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-navy);
+  outline-offset: 3px;
+}
+
+.status-mark[data-status="PASS"] { background: #e7f3ec; color: var(--color-pass); }
+.status-mark[data-status="FAIL"] { background: #fbeceb; color: var(--color-fail); }
+.status-mark[data-status="NEEDS_REVIEW"] { background: #f8efd8; color: var(--color-review); }
+.status-mark[data-status="NOT_CHECKED"] { background: #ece8e1; color: var(--color-mute); }
+
+.status-plate[data-status="PASS"] { box-shadow: inset 4px 0 0 var(--color-pass); }
+.status-plate[data-status="FAIL"] { box-shadow: inset 4px 0 0 var(--color-fail); }
+.status-plate[data-status="NEEDS_REVIEW"] { box-shadow: inset 4px 0 0 var(--color-review); }
+.status-plate[data-status="NOT_CHECKED"] { box-shadow: inset 4px 0 0 var(--color-mute); }
+
+.finding[data-status="PASS"] { border-left-color: var(--color-pass); }
+.finding[data-status="FAIL"] { border-left-color: var(--color-fail); }
+.finding[data-status="NEEDS_REVIEW"] { border-left-color: var(--color-review); }
+.finding[data-status="NOT_CHECKED"] { border-left-color: var(--color-mute); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -1,0 +1,11 @@
+ShipShape AI
+GitHub Repository Release Auditor
+
+This project uses the BharatCode model API on the server to explain static
+release-readiness findings for a public GitHub repository.
+
+API base: https://bharatcode.ai/api/model/v1
+Default model: qwen-3.8-27b
+
+Repository contents are read through the public GitHub API. Untrusted
+repository code is not installed or executed. API keys stay on the server.
