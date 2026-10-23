@@ -73,7 +73,7 @@ export function ReportView({ report, filter, onFilter }: ReportViewProps) {
       </div>
 
       <aside className="mt-4 rounded-md border border-line bg-card p-4">
-        <p className="text-xs font-semibold tracking-[0.16em] text-brass uppercase">BharatCode</p>
+        <p className="text-xs font-semibold tracking-[0.16em] text-brass uppercase">AI explanations</p>
         {report.ai.available && report.ai.summary ? (
           <>
             <p className="mt-2 text-sm leading-6">{report.ai.summary}</p>

@@ -54,7 +54,7 @@ export function App() {
             <p className="text-xs font-semibold tracking-[0.2em] text-brass uppercase">Harbor inspection</p>
             <h1 className="font-serif text-4xl">ShipShape</h1>
           </div>
-          <p className="max-w-md text-sm leading-6 text-paper/80">Public GitHub repositories. Static checks. BharatCode explains the result.</p>
+          <p className="max-w-md text-sm leading-6 text-paper/80">Public GitHub repositories. Static checks. BharatCode explains verified findings.</p>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">

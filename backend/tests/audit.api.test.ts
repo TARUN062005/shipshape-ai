@@ -66,7 +66,9 @@ describe("audit API", () => {
     expect(response.body.repository.url).toBe("https://github.com/acme/widget");
     expect(response.body.summary.status).toBe("FAIL");
     expect(response.body.limitations.join(" ")).toContain("were not run");
-    expect(response.body.findings.find((finding: { id: string }) => finding.id === "readme").guidance).toContain("README.md");
+    const readme = response.body.findings.find((finding: { id: string }) => finding.id === "readme");
+    expect(readme.status).toBe("FAIL");
+    expect(readme.guidance).toContain("README.md");
     expect(response.body.findings.some((finding: { id: string }) => finding.id === "not-a-real-check")).toBe(false);
     expect(loadRepository).toHaveBeenCalledWith("acme", "widget");
     const sent = explain.mock.calls[0]?.[0];

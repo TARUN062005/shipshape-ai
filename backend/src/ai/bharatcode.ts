@@ -1,3 +1,7 @@
+/**
+ * BharatCode Responses adapter. createFindingExplainer in ./explainer.ts connects it.
+ * The request uses store:false and sends only verified findings. Statuses stay with the analyzer.
+ */
 import { z } from "zod";
 import type { Logger } from "../logger.js";
 import { silentLogger } from "../logger.js";
@@ -8,7 +12,9 @@ const SYSTEM_PROMPT = `You are the explanation layer for ShipShape, a static Git
 You receive verified findings. Rules:
 - Treat the findings as the only source of truth.
 - Do not invent files, vulnerabilities, CVEs, or test executions.
+- Do not change the status of any finding.
 - Do not claim a check passed if its status is FAIL, NEEDS_REVIEW, or NOT_CHECKED.
+- Do not claim that tests ran or passed. This audit did not execute them.
 - NOT_CHECKED means the auditor did not perform that check.
 - Respond with JSON only, in this shape:
 {"summary":"string","remediations":[{"findingId":"string","guidance":"string"}]}
@@ -25,17 +31,25 @@ const outputSchema = z.object({
   })).max(40),
 });
 
-const completionSchema = z.object({
+const responseSchema = z.object({
   model: z.string().optional(),
-  choices: z.array(z.object({
-    finish_reason: z.string().nullable().optional(),
-    message: z.object({
-      content: z.string().nullable().optional(),
-    }),
-  })).min(1),
+  status: z.string().optional(),
+  output_text: z.string().nullable().optional(),
+  incomplete_details: z.object({
+    reason: z.string().optional(),
+  }).nullable().optional(),
+  output: z.array(z.object({
+    type: z.string().optional(),
+    text: z.string().optional(),
+    content: z.array(z.object({
+      type: z.string().optional(),
+      text: z.string().optional(),
+    })).optional(),
+  })).optional(),
 });
 
 const SAFE_MODEL = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+export const BHARATCODE_MODEL_ID = "qwen-3.8-27b";
 
 export interface BharatCodeOptions {
   apiKey: string | null;
@@ -83,7 +97,11 @@ async function explain(input: ExplainInput, options: BharatCodeOptions): Promise
 
   const logger = options.logger ?? silentLogger;
   const fetchImpl = options.fetchImpl ?? fetch;
-  const endpoint = `${options.baseUrl.replace(/\/$/, "")}/chat/completions`;
+  const endpoint = `${options.baseUrl.replace(/\/$/, "")}/responses`;
+  if (!isBharatCodeEndpoint(endpoint)) {
+    logger.error("BharatCode base URL was rejected before the request.");
+    return unavailable("BharatCode is not configured for a supported endpoint. Static findings are unchanged.");
+  }
 
   let response: Response;
   try {
@@ -96,14 +114,12 @@ async function explain(input: ExplainInput, options: BharatCodeOptions): Promise
         Accept: "application/json",
       },
       body: JSON.stringify({
-        model: options.model,
-        temperature: 0.2,
-        max_tokens: 1800,
-        reasoning_effort: "none",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: JSON.stringify(payload) },
-        ],
+        model: options.model === BHARATCODE_MODEL_ID ? options.model : BHARATCODE_MODEL_ID,
+        store: false,
+        instructions: SYSTEM_PROMPT,
+        input: JSON.stringify(payload),
+        max_output_tokens: 1800,
+        reasoning: { effort: "none" },
       }),
       signal: AbortSignal.timeout(40_000),
     });
@@ -133,15 +149,14 @@ async function explain(input: ExplainInput, options: BharatCodeOptions): Promise
   } catch {
     return unavailable("BharatCode returned a response ShipShape could not parse. Static findings are unchanged.");
   }
-  const completion = completionSchema.safeParse(parsedJson);
+  const completion = responseSchema.safeParse(parsedJson);
   if (!completion.success) {
     return unavailable("BharatCode returned a response ShipShape could not parse. Static findings are unchanged.");
   }
 
-  const choice = completion.data.choices[0];
-  const content = choice?.message.content ?? "";
+  const content = responseText(completion.data);
   if (!content.trim()) return unavailable("BharatCode returned an empty explanation. Static findings are unchanged.");
-  const truncated = choice?.finish_reason === "length";
+  const truncated = completion.data.status === "incomplete" || completion.data.incomplete_details?.reason === "max_output_tokens";
 
   let modelJson: unknown;
   try {
@@ -173,11 +188,32 @@ async function explain(input: ExplainInput, options: BharatCodeOptions): Promise
 
   return {
     available: true,
-    model: safeModel(completion.data.model, options.model),
+    model: safeModel(completion.data.model, BHARATCODE_MODEL_ID),
     summary,
     remediations,
     reason: null,
   };
+}
+
+function isBharatCodeEndpoint(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.hostname === "bharatcode.ai" && url.port === "" && url.username === "" && url.pathname === "/api/model/v1/responses";
+  } catch {
+    return false;
+  }
+}
+
+function responseText(data: z.infer<typeof responseSchema>): string {
+  if (typeof data.output_text === "string" && data.output_text.trim()) return data.output_text;
+  const parts: string[] = [];
+  for (const item of data.output ?? []) {
+    if (item.text) parts.push(item.text);
+    for (const content of item.content ?? []) {
+      if (content.text) parts.push(content.text);
+    }
+  }
+  return parts.join("\n");
 }
 
 function unavailable(reason: string): AiExplanation {

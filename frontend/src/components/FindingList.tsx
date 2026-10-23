@@ -61,7 +61,7 @@ export function FindingList({ findings, filter, onFilter }: FindingListProps) {
               ) : null}
               {finding.guidance ? (
                 <div className="mt-3 border-t border-line pt-3">
-                  <p className="text-xs font-semibold tracking-[0.14em] text-brass uppercase">BharatCode</p>
+                  <p className="text-xs font-semibold tracking-[0.14em] text-brass uppercase">Explanation</p>
                   <p className="mt-1 text-sm leading-6">{finding.guidance}</p>
                 </div>
               ) : null}

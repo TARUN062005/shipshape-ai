@@ -31,6 +31,11 @@ export function createApp(config: AppConfig, deps: AuditDependencies, options: C
   const app = express();
   const logger = options.logger ?? consoleLogger;
   const secrets = [config.bharatcodeApiKey, config.githubToken].filter((value): value is string => value !== null);
+  const safeLogger: Logger = {
+    error(message: string) {
+      logger.error(redactSecrets(message, secrets));
+    },
+  };
   const allow = createRateLimiter(config.rateLimitMax, config.rateLimitWindowMs);
 
   app.disable("x-powered-by");
@@ -55,7 +60,7 @@ export function createApp(config: AppConfig, deps: AuditDependencies, options: C
       });
       return;
     }
-    audit(req, res, config, deps, logger).catch(next);
+    audit(req, res, config, deps, safeLogger).catch(next);
   });
 
   app.use("/api", (_req, res) => {

@@ -1,6 +1,6 @@
 # ShipShape AI
 
-ShipShape is a release inspector for public GitHub repositories. It reads a repository through the GitHub API, runs deterministic checks, and asks BharatCode to explain those findings. It does not install the project, run its tests, or push commits.
+ShipShape is a release inspector for public GitHub repositories. It reads a repository through the GitHub API and runs deterministic checks. When `BHARATCODE_API_KEY` is set, the backend asks BharatCode to explain those findings. It does not install the project, run its tests, or push commits.
 
 ## What a report means
 
@@ -15,7 +15,7 @@ Each check is one of:
 
 The check score is the share of applicable checks that passed. Not-checked items are excluded. A passing report is not a security certification and does not mean the repository's own tests passed.
 
-BharatCode receives the verified findings and returns a summary plus remediation for failed and review items. It is not a second scanner. If `BHARATCODE_API_KEY` is unset or the model response cannot be parsed, the static report is still returned.
+The audit response includes an `ai` object. With a server key, BharatCode writes `summary` and per-finding `guidance` through the Responses API (`store: false`, model `qwen-3.8-27b`). Without a key, or when that call fails, `available` is false and the static findings are unchanged. The model cannot change a finding's status. `backend/src/ai/explainer.ts` chooses the adapter. The API key stays on the server.
 
 ## Checks
 
@@ -25,7 +25,7 @@ BharatCode receives the verified findings and returns a summary plus remediation
 - Lockfiles for Node.js, Poetry, uv, Go, and Rust. Java pinning is not checked
 - Test configuration and test filenames. The commands are not executed
 - Committed `node_modules`
-- Secret-like filenames (`.env`, private key names, PEM files). File contents of those names are not read or sent to BharatCode
+- Secret-like filenames (`.env`, private key names, PEM files). Those file contents are not read
 - Dependabot or Renovate config
 - A published GitHub Release
 - Whether GitHub truncated the file tree
@@ -37,11 +37,10 @@ frontend/   React + TypeScript + Vite + Tailwind
 backend/    Express + TypeScript + Zod + Vitest
 ```
 
-The browser calls `POST /api/audit` on this backend. The backend allows only `https://github.com/<owner>/<repo>`, then calls `https://api.github.com` with the owner and repo it parsed. Redirects that leave `api.github.com` are refused. BharatCode is called only from the backend, and only at `https://bharatcode.ai`.
+The browser calls `POST /api/audit` on this backend. The backend allows only `https://github.com/<owner>/<repo>`, then calls `https://api.github.com` with the owner and repo it parsed. Redirects that leave `api.github.com` are refused.
 
 ```
 Browser -> ShipShape API -> GitHub REST API
-                         -> BharatCode chat completions
 ```
 
 No repository URL is fetched directly, and nothing from the repository is passed to a shell.
@@ -84,7 +83,7 @@ npm start
 { "repositoryUrl": "https://github.com/owner/repo" }
 ```
 
-The response contains `repository`, `projectTypes`, `summary`, `findings`, `ai`, and `limitations`. Findings include `status`, `severity`, `evidence`, `paths`, and BharatCode `guidance` when one was returned for that id. Errors use `{ "error", "code" }`.
+The response contains `repository`, `projectTypes`, `summary`, `findings`, `ai`, and `limitations`. Findings include `status`, `severity`, `evidence`, and `paths`. `guidance` is the model's suggested fix for a failing or needs-review finding, or null when no explanation is available. Errors use `{ "error", "code" }`.
 
 ## Development
 
@@ -94,7 +93,7 @@ npm run typecheck
 npm run build
 ```
 
-Backend tests cover URL allowlisting, the analyzer, the GitHub client, the BharatCode client, and the HTTP API. They use injected fetch mocks, so they do not call GitHub or BharatCode. Frontend tests cover status labels, finding order, and API base handling.
+Backend tests cover URL allowlisting, the analyzer, the GitHub client, the explainer, the BharatCode adapter, and the HTTP API. They use injected fetch mocks, so they do not call GitHub or BharatCode. Frontend tests cover status labels, finding order, and API base handling.
 
 ## Limitations
 
